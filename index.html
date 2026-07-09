@@ -1,29 +1,168 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Curandera FC</title>
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a0e14;
-      color: #e8e8e8;
-      font-family: 'Courier New', monospace;
-      text-align: center;
-    }
-    h1 { letter-spacing: 0.05em; }
-    p { color: #8a8a8a; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curandera FC — Mundial 2026</title>
+<style>
+  :root{
+    --ice:#bfe9ff; --candle:#e8c468; --void:#0a0a0c; --bone:#e9e2d0;
+    --panel:#0e1620; --border:rgba(191,233,255,0.25);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:var(--void);color:var(--bone);
+       font-family:'Courier New',monospace;}
+  header{padding:18px 16px 10px;text-align:center;}
+  header h1{margin:0;font-size:20px;letter-spacing:2px;color:var(--ice);
+             text-shadow:0 0 10px rgba(191,233,255,.4);}
+  header p{margin:4px 0 0;font-size:12px;color:#8a8a8a;}
+
+  #tabs{display:flex;border-bottom:1px solid var(--border);margin:0 12px;}
+  .tab{flex:1;padding:12px;text-align:center;background:none;border:none;
+       color:#8a8a8a;font-family:inherit;font-size:14px;letter-spacing:1px;
+       cursor:pointer;border-bottom:2px solid transparent;}
+  .tab.active{color:var(--ice);border-bottom-color:var(--ice);}
+
+  #panel-vote, #panel-game{padding:16px;max-width:480px;margin:0 auto;}
+  #panel-game{padding:0;max-width:none;}
+  #panel-game iframe{width:100%;height:calc(100vh - 84px);border:none;display:block;}
+  .hidden{display:none;}
+
+  .match-card{background:var(--panel);border:1px solid var(--border);
+              border-radius:8px;padding:16px;text-align:center;}
+  .match-card .stage{font-size:11px;color:var(--candle);letter-spacing:1px;text-transform:uppercase;}
+  .match-card .venue{font-size:11px;color:#8a8a8a;margin-top:2px;}
+  .match-card .teams{font-size:18px;margin:14px 0 4px;color:var(--bone);}
+  .match-card .kickoff{font-size:12px;color:#8a8a8a;}
+
+  .vote-row{display:flex;gap:10px;margin-top:18px;}
+  .vote-btn{flex:1;background:var(--panel);border:1.5px solid var(--border);
+            color:var(--bone);border-radius:8px;padding:14px 8px;cursor:pointer;
+            font-family:inherit;font-size:13px;transition:border-color .2s,transform .1s;}
+  .vote-btn:hover:not(:disabled){border-color:var(--ice);transform:translateY(-2px);}
+  .vote-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .vote-btn .count{display:block;font-size:22px;color:var(--ice);margin-top:6px;}
+  .vote-btn.mine{border-color:var(--candle);}
+
+  #status-msg{text-align:center;font-size:12px;color:#8a8a8a;margin-top:14px;}
+
+  #play-link{display:block;text-align:center;margin-top:20px;padding:12px;
+             border:1.5px solid var(--candle);border-radius:8px;color:var(--candle);
+             text-decoration:none;font-size:13px;letter-spacing:1px;}
+</style>
 </head>
 <body>
-  <div>
-    <h1>❄️ Curandera FC</h1>
-    <p>El freezer está listo. Mundial 2026.</p>
-  </div>
+
+<header>
+  <h1>❄ CURANDERA FC</h1>
+  <p>Mundial 2026 — el freezer colectivo</p>
+</header>
+
+<div id="tabs">
+  <button class="tab active" data-tab="vote">VOTAR</button>
+  <button class="tab" data-tab="game">JUGAR</button>
+</div>
+
+<div id="panel-vote">
+  <div class="match-card" id="match-card">Cargando partido...</div>
+  <div class="vote-row" id="vote-row"></div>
+  <div id="status-msg"></div>
+  <a href="#" id="play-link" class="hidden" data-tab-link="game">🎮 Ir al freezer del partido</a>
+</div>
+
+<div id="panel-game" class="hidden">
+  <iframe id="game-frame" src=""></iframe>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js"></script>
+<script src="fixtures.js"></script>
+<script src="vote.js"></script>
+<script>
+  // ---------- TAB SWITCHING ----------
+  const tabs = document.querySelectorAll('.tab');
+  const panels = { vote: document.getElementById('panel-vote'), game: document.getElementById('panel-game') };
+
+  function showTab(name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    Object.entries(panels).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
+    if (name === 'game') loadGameFrame();
+  }
+  tabs.forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+  document.querySelectorAll('[data-tab-link]').forEach(el =>
+    el.addEventListener('click', e => { e.preventDefault(); showTab(el.dataset.tabLink); })
+  );
+
+  // ---------- VOTE PANEL ----------
+  const { match, status, votingOpen } = getActiveMatch();
+  const cardEl = document.getElementById('match-card');
+  const rowEl = document.getElementById('vote-row');
+  const statusEl = document.getElementById('status-msg');
+  const playLink = document.getElementById('play-link');
+
+  if (!match) {
+    cardEl.textContent = 'El torneo terminó. Nos vemos en 2030.';
+  } else {
+    const kickoffLocal = new Date(match.kickoff_utc).toLocaleString('es-AR', {
+      dateStyle: 'medium', timeStyle: 'short'
+    });
+    cardEl.innerHTML = `
+      <div class="stage">${match.stage.replace('_',' ')}</div>
+      <div class="venue">${match.venue}</div>
+      <div class="teams">${match.home.name} vs ${match.away.name}</div>
+      <div class="kickoff">${status === 'live' ? 'EN VIVO' : kickoffLocal}</div>
+    `;
+    renderVoteButtons();
+    playLink.classList.remove('hidden');
+    refreshCounts();
+    subscribeToVotes(match.id, refreshCounts);
+  }
+
+  function renderVoteButtons() {
+    const myVote = getMyVote(match.id);
+    rowEl.innerHTML = '';
+    [match.home, match.away].forEach(team => {
+      const btn = document.createElement('button');
+      btn.className = 'vote-btn' + (myVote === team.code ? ' mine' : '');
+      btn.disabled = !votingOpen || !!myVote;
+      btn.innerHTML = `❄ Congelar a ${team.name}<span class="count" id="count-${team.code}">–</span>`;
+      btn.addEventListener('click', () => onVote(team.code));
+      rowEl.appendChild(btn);
+    });
+  }
+
+  async function onVote(teamCode) {
+    const { error, alreadyVoted } = await castVote(match.id, teamCode);
+    if (alreadyVoted) { statusEl.textContent = 'Ya votaste en este partido.'; return; }
+    if (error) { statusEl.textContent = 'Algo falló, probá de nuevo.'; return; }
+    statusEl.textContent = '¡Voto registrado! El freezer está activo.';
+    renderVoteButtons();
+    refreshCounts();
+  }
+
+  async function refreshCounts() {
+    const counts = await getVoteCounts(match.id);
+    [match.home, match.away].forEach(team => {
+      const el = document.getElementById(`count-${team.code}`);
+      if (el) el.textContent = counts[team.code] || 0;
+    });
+  }
+
+  // ---------- GAME PANEL ----------
+  let gameLoaded = false;
+  function loadGameFrame() {
+    if (gameLoaded || !match) return;
+    getVoteCounts(match.id).then(counts => {
+      const homeVotes = counts[match.home.code] || 0;
+      const awayVotes = counts[match.away.code] || 0;
+      // whichever team has more freeze votes is the rival (TEAM_B) in the game
+      const frozen = awayVotes >= homeVotes ? match.away : match.home;
+      const yours = frozen === match.home ? match.away : match.home;
+      const params = new URLSearchParams({ team_a: yours.name, team_b: frozen.name });
+      document.getElementById('game-frame').src = `brujitas.html?${params}`;
+      gameLoaded = true;
+    });
+  }
+</script>
 </body>
 </html>

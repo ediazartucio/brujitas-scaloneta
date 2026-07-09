@@ -255,8 +255,9 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
 
 <script>
 /* ============ CONFIG ============ */
-const TEAM_A = "ARGENTINA";
-const TEAM_B = "RIVAL F.C.";
+const params = new URLSearchParams(location.search);
+const TEAM_A = params.get('team_a') || "TU EQUIPO";
+const TEAM_B = params.get('team_b') || "RIVAL F.C.";
 
 // Win-probability baked from "last 5 years" stat flavor — purely cosmetic input.
 const BASE_STRENGTH_A = 0.56; // 56% favored, like a defending-champion narrative
