@@ -212,8 +212,17 @@
 
   // Post-vote prompt — shown once, right when THIS user's own vote registers
   // (not on every realtime update from other voters).
+  const VOTE_SHARE_TEMPLATES = [
+    team => `❄ Voté para congelar a ${team} en el Mundial 2026. ¿Te sumás?`,
+    team => `Ayudame a congelar a ${team} para que pierdan. Ya voté ❄`,
+    team => `Metí el papelito de ${team} en el freezer. Sumate vos también ❄`,
+    team => `${team} ya está en mi freezer. ¿Vos a quién vas a congelar?`,
+    team => `Acabo de votar para congelar a ${team}. No lo va a explicar la ciencia, pero funciona ❄`
+  ];
+
   function showVoteShareOverlay(teamLabel) {
-    document.getElementById('vs-text').textContent = `❄ Votaste para congelar a ${teamLabel} en el Mundial 2026. ¿Lo contás?`;
+    const template = VOTE_SHARE_TEMPLATES[Math.floor(Math.random() * VOTE_SHARE_TEMPLATES.length)];
+    document.getElementById('vs-text').textContent = template(teamLabel);
     document.getElementById('vote-share-overlay').classList.remove('hidden');
   }
   document.getElementById('vs-close-btn').addEventListener('click', () =>
