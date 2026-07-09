@@ -1,19 +1,20 @@
 // flag = ISO 3166-1 alpha-2 (lowercase) for flagcdn.com; England uses the
 // GB-ENG subdivision code since "England" has no ISO country code of its own.
+// color = primary jersey color, picked to contrast against that match's opponent.
 const FIXTURES = {
   matches: [
     { id: "m97",  stage: "quarterfinal", kickoff_utc: "2026-07-09T20:00:00Z", venue: "Gillette Stadium, Boston",
-      home: { name_es: "Francia",     code: "FRA", flag: "fr" },
-      away: { name_es: "Marruecos",   code: "MAR", flag: "ma" } },
+      home: { name_es: "Francia",     code: "FRA", flag: "fr",     color: "#0055A4" },
+      away: { name_es: "Marruecos",   code: "MAR", flag: "ma",     color: "#C1272D" } },
     { id: "m98",  stage: "quarterfinal", kickoff_utc: "2026-07-10T19:00:00Z", venue: "SoFi Stadium, Los Angeles",
-      home: { name_es: "España",      code: "ESP", flag: "es" },
-      away: { name_es: "Bélgica",     code: "BEL", flag: "be" } },
+      home: { name_es: "España",      code: "ESP", flag: "es",     color: "#C60B1E" },
+      away: { name_es: "Bélgica",     code: "BEL", flag: "be",     color: "#2D2926" } },
     { id: "m99",  stage: "quarterfinal", kickoff_utc: "2026-07-11T21:00:00Z", venue: "Hard Rock Stadium, Miami",
-      home: { name_es: "Noruega",     code: "NOR", flag: "no" },
-      away: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng" } },
+      home: { name_es: "Noruega",     code: "NOR", flag: "no",     color: "#BA0C2F" },
+      away: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" } },
     { id: "m100", stage: "quarterfinal", kickoff_utc: "2026-07-12T01:00:00Z", venue: "Arrowhead Stadium, Kansas City",
-      home: { name_es: "Argentina",   code: "ARG", flag: "ar" },
-      away: { name_es: "Suiza",       code: "SUI", flag: "ch" } },
+      home: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" },
+      away: { name_es: "Suiza",       code: "SUI", flag: "ch",     color: "#D52B1E" } },
     { id: "m101", stage: "semifinal",    kickoff_utc: "2026-07-14T19:00:00Z", venue: "AT&T Stadium, Dallas",
       home: { ref: "winner:m97" }, away: { ref: "winner:m98" } },
     { id: "m102", stage: "semifinal",    kickoff_utc: "2026-07-15T19:00:00Z", venue: "Mercedes-Benz Stadium, Atlanta",

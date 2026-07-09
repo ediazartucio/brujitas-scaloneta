@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Brujitas Scaloneta — Partido</title>
+<title>CURANDERA FC — Partido Brujo</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Special+Elite&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -43,6 +43,8 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   z-index:5;
 }
 #scorebug .team{font-size:15px;}
+#scorebug #nameA{color:var(--color-a, var(--bone));}
+#scorebug #nameB{color:var(--color-b, var(--bone));}
 #scorebug .score{font-size:22px; color:var(--candle);}
 #scorebug .clock{font-family:'JetBrains Mono',monospace; font-size:13px; color:#9bd; margin-left:6px;}
 #prob-bar{
@@ -52,8 +54,8 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
 }
 #prob-bar .label{display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; margin-bottom:4px; opacity:.85;}
 #prob-fill-wrap{height:8px; background:#1a1a22; border-radius:4px; overflow:hidden; display:flex;}
-#prob-fill-a{height:100%; background:var(--candle);}
-#prob-fill-b{height:100%; background:var(--curse-red);}
+#prob-fill-a{height:100%; background:var(--color-a, var(--candle));}
+#prob-fill-b{height:100%; background:var(--color-b, var(--curse-red));}
 
 #field{position:absolute; inset:0;}
 .dot{
@@ -62,8 +64,8 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   transition:left 1.1s ease, top 1.1s ease, opacity .4s, filter .3s;
   box-shadow:0 2px 4px rgba(0,0,0,0.5);
 }
-.dot.A{background:var(--candle); border:2px solid #fff3d0;}
-.dot.B{background:var(--curse-red); border:2px solid #ffd1cb;}
+.dot.A{background:var(--color-a, var(--candle)); border:2px solid #fff3d0;}
+.dot.B{background:var(--color-b, var(--curse-red)); border:2px solid #ffd1cb;}
 .dot.frozen{filter: drop-shadow(0 0 8px var(--ice)) saturate(.3) brightness(1.3); border-color:var(--ice)!important; animation:shiver .15s infinite;}
 @keyframes shiver{0%{transform:translate(-51%,-50%);}50%{transform:translate(-49%,-50%);}100%{transform:translate(-51%,-50%);}}
 .ball{position:absolute; width:9px;height:9px;border-radius:50%;background:#fff; transition:left .8s ease, top .8s ease; box-shadow:0 0 6px rgba(255,255,255,.8);}
@@ -77,8 +79,8 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   z-index:5;
   min-height:34px;
 }
-#ticker .ev-A{color:var(--candle);}
-#ticker .ev-B{color:#ff8a7a;}
+#ticker .ev-A{color:var(--color-a, var(--candle));}
+#ticker .ev-B{color:var(--color-b, #ff8a7a);}
 #ticker .ev-curse{color:var(--ice); text-shadow:0 0 6px rgba(191,233,255,.6);}
 
 /* ===== BOTTOM: THE FREEZER ===== */
@@ -288,8 +290,8 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
 </div>
 
 <div id="teampick">
-  <h1>❄ ELEGÍ TU BANDO</h1>
-  <p>¿A quién NO vas a congelar? Ese es tu equipo. El otro se llena de papelitos.</p>
+  <h1>❄ ELEGÍ TU EQUIPO</h1>
+  <p>Vas a jugar con este equipo. El rival se llena de papelitos — cada uno que metas al freezer es un jugador de ellos maldecido.</p>
   <div id="teampick-row"></div>
 </div>
 
@@ -312,15 +314,36 @@ const params = new URLSearchParams(location.search);
 const TEAM1 = {
   name: params.get('team1_name') || 'Tu equipo',
   code: params.get('team1_code') || 'T1',
-  flag: params.get('team1_flag') || ''
+  flag: params.get('team1_flag') || '',
+  color: params.get('team1_color') || ''
 };
 const TEAM2 = {
   name: params.get('team2_name') || 'Rival F.C.',
   code: params.get('team2_code') || 'T2',
-  flag: params.get('team2_flag') || ''
+  flag: params.get('team2_flag') || '',
+  color: params.get('team2_color') || ''
 };
 const VOTES1 = parseInt(params.get('votes1') || '0', 10);
 const VOTES2 = parseInt(params.get('votes2') || '0', 10);
+
+// Real squads for teams we've confirmed rosters for (drawn from current squad
+// announcements, not a guaranteed matchday XI — lineups can still shift).
+// Any team code not listed here falls back to the generic fantasy roster.
+// Add more entries here as later-round teams get confirmed.
+const REAL_ROSTERS = {
+  FRA: {
+    keeper: "Maignan",
+    def: ["Saliba", "Upamecano", "T. Hernandez", "Koundé"],
+    med: ["Tchouaméni", "Rabiot", "Zaïre-Emery"],
+    del: ["Mbappé", "Dembélé", "Olise"]
+  },
+  MAR: {
+    keeper: "Bounou",
+    def: ["Hakimi", "Mazraoui", "Riad", "Salah-Eddine"],
+    med: ["Amrabat", "El Khannouss", "Ounahi"],
+    del: ["Brahim Díaz", "El Kaabi", "Rahimi"]
+  }
+};
 
 // Set once the player picks a side in #teampick — nothing below reads these
 // before that point.
@@ -365,12 +388,23 @@ let manDownA = 0, manDownB = 0; // count of red-carded players (no replacement)
 let benchIdx = 0;
 
 /* ============ INIT ROSTER ============ */
-function buildRoster(){
+function buildRoster(rivalCode){
   let grid = document.getElementById("players-grid");
+  const real = REAL_ROSTERS[rivalCode];
   RIVAL_ROLES.forEach((role,i)=>{
+    let name;
+    if (real) {
+      // pull the next name off the matching real-position list, cycling if we
+      // run out (only 4 DEF/3 MED/3 DEL/1 ARQ slots, lists are sized to match)
+      const pool = role === "ARQ" ? [real.keeper] : role === "DEF" ? real.def : role === "MED" ? real.med : real.del;
+      const idx = role === "DEF" ? i : role === "MED" ? i - 4 : role === "DEL" ? i - 7 : 0;
+      name = pool[idx % pool.length];
+    } else {
+      name = RIVAL_NAMES[i % RIVAL_NAMES.length] + " " + (10+i);
+    }
     const p = {
       id:i,
-      name: RIVAL_NAMES[i % RIVAL_NAMES.length] + " " + (10+i),
+      name,
       role,
       frozenUntil: 0,
       cooldownUntil: 0,
@@ -764,28 +798,39 @@ function renderTeamPick() {
 
 function pickTeam(side) {
   const { bias1, bias2 } = computeVoteBias();
+  let rivalCode;
   if (side === 1) {
     TEAM_A = TEAM1.name; TEAM_B = TEAM2.name;
     VOTE_BIAS_A = bias1; VOTE_BIAS_B = bias2;
+    rivalCode = TEAM2.code;
+    setTeamColors(TEAM1.color, TEAM2.color);
   } else {
     TEAM_A = TEAM2.name; TEAM_B = TEAM1.name;
     VOTE_BIAS_A = bias2; VOTE_BIAS_B = bias1;
+    rivalCode = TEAM1.code;
+    setTeamColors(TEAM2.color, TEAM1.color);
   }
   document.getElementById("nameA").textContent = TEAM_A;
   document.getElementById("nameB").textContent = TEAM_B;
   document.getElementById("prob-fill-a").style.width = ((BASE_STRENGTH_A + VOTE_BIAS_A) * 100) + "%";
   document.getElementById("prob-fill-b").style.width = ((BASE_STRENGTH_B + VOTE_BIAS_B) * 100) + "%";
+  buildRoster(rivalCode);
   document.getElementById("teampick").style.display = "none";
   document.getElementById("startcard").style.display = "flex";
+}
+
+function setTeamColors(colorA, colorB) {
+  const root = document.documentElement.style;
+  if (colorA) root.setProperty('--color-a', colorA); else root.removeProperty('--color-a');
+  if (colorB) root.setProperty('--color-b', colorB); else root.removeProperty('--color-b');
 }
 
 /* ============ START ============ */
 let matchStarted = false;
 function init(){
-  buildRoster();
   buildField();
   renderTeamPick();
-  // team names / prob bar / tick loop all wait on pickTeam() -> startMatch()
+  // team names / prob bar / roster / tick loop all wait on pickTeam() -> startMatch()
 }
 function startMatch(){
   if(matchStarted) return;

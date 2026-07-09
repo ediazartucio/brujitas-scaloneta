@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brujitas Scaloneta — Mundial 2026</title>
+<title>Curandera FC — Mundial 2026</title>
 <style>
   :root{
     --ice:#bfe9ff; --candle:#e8c468; --void:#0a0a0c; --bone:#e9e2d0;
@@ -78,7 +78,7 @@
 <body>
 
 <header>
-  <h1>❄ Brujitas Scaloneta</h1>
+  <h1>❄ CURANDERA FC</h1>
   <p>Mundial 2026 — el freezer colectivo</p>
 </header>
 
@@ -125,7 +125,7 @@
     return team.flag ? `<img class="flag" src="https://flagcdn.com/24x18/${team.flag}.png" alt="">` : '';
   }
   function describeTeam(team) {
-    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code, flag: team.flag || '' };
+    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code, flag: team.flag || '', color: team.color || '' };
     if (team.ref) {
       const [kind, matchId] = team.ref.split(':');
       const verb = kind === 'winner' ? 'Ganador' : 'Perdedor';
@@ -258,8 +258,8 @@
 
     getVoteCounts(match.id).then(counts => {
       const params = new URLSearchParams({
-        team1_name: home.label, team1_code: home.code, team1_flag: home.flag,
-        team2_name: away.label, team2_code: away.code, team2_flag: away.flag,
+        team1_name: home.label, team1_code: home.code, team1_flag: home.flag, team1_color: home.color,
+        team2_name: away.label, team2_code: away.code, team2_flag: away.flag, team2_color: away.color,
         votes1: counts[home.code] || 0, votes2: counts[away.code] || 0
       });
       document.getElementById('game-frame').src = `brujitas.html?${params}`;
