@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Freezer mundialista — Mundial 2026</title>
+<meta property="og:title" content="❄ Freezer mundialista — Mundial 2026">
+<meta property="og:description" content="Sumate al freezer colectivo del Mundial 2026 — votá y congelá con nosotros.">
+<meta property="og:image" content="https://freezermundialista.netlify.app/images/share/default.jpg">
+<meta property="og:image:width" content="1254">
+<meta property="og:image:height" content="1254">
+<meta property="og:url" content="https://freezermundialista.netlify.app/">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root{
     --ice:#bfe9ff; --candle:#e8c468; --void:#0a0a0c; --bone:#e9e2d0;
@@ -196,24 +203,24 @@
   const SITE_URL = location.origin + location.pathname;
   const GENERAL_SHARE_TEXT = '❄ Sumate al freezer colectivo del Mundial 2026 — votá y congelá con nosotros:';
 
-  function shareViaBestMethod(text) {
+  function shareViaBestMethod(text, url = SITE_URL) {
     if (navigator.share) {
-      navigator.share({ text, url: SITE_URL }).catch(() => {}); // ignore user-cancelled
+      navigator.share({ text, url }).catch(() => {}); // ignore user-cancelled
     } else {
-      openShareFallback(text);
+      openShareFallback(text, url);
     }
   }
 
-  function openShareFallback(text) {
-    const encoded = encodeURIComponent(`${text} ${SITE_URL}`);
+  function openShareFallback(text, url = SITE_URL) {
+    const encoded = encodeURIComponent(`${text} ${url}`);
     const panel = document.getElementById('share-fallback');
     panel.innerHTML = `
       <a href="https://twitter.com/intent/tweet?text=${encoded}" target="_blank" rel="noopener">𝕏 Postear en X</a>
       <a href="https://wa.me/?text=${encoded}" target="_blank" rel="noopener">💬 WhatsApp</a>
-      <button type="button" data-copy-text="${text.replace(/"/g, '&quot;')}">🔗 Copiar link</button>
+      <button type="button" data-copy-text="${text.replace(/"/g, '&quot;')}" data-copy-url="${url}">🔗 Copiar link</button>
     `;
     panel.querySelector('[data-copy-text]').addEventListener('click', function () {
-      navigator.clipboard.writeText(`${this.dataset.copyText} ${SITE_URL}`)
+      navigator.clipboard.writeText(`${this.dataset.copyText} ${this.dataset.copyUrl}`)
         .then(() => showSnackbar('Link copiado.'));
       closeShareFallback();
     });
@@ -253,7 +260,9 @@
   }
 
   // Post-vote prompt — shown once, right when THIS user's own vote registers
-  // (not on every realtime update from other voters).
+  // (not on every realtime update from other voters). Links to that team's
+  // dedicated /share/{code}.html page so the social preview shows the
+  // matching pre-rendered image, not the generic site preview.
   const VOTE_SHARE_TEMPLATES = [
     team => `❄ Voté para congelar a ${team} en el Mundial 2026. ¿Te sumás?`,
     team => `Ayudame a congelar a ${team} para que pierdan. Ya voté ❄`,
@@ -262,15 +271,20 @@
     team => `Acabo de votar para congelar a ${team}. No lo va a explicar la ciencia, pero funciona ❄`
   ];
 
-  function showVoteShareOverlay(teamLabel) {
+  let currentVoteShareUrl = SITE_URL;
+
+  function showVoteShareOverlay(teamLabel, teamCode) {
     const template = VOTE_SHARE_TEMPLATES[Math.floor(Math.random() * VOTE_SHARE_TEMPLATES.length)];
+    currentVoteShareUrl = teamCode
+      ? `${location.origin}/share/${teamCode.toLowerCase()}.html`
+      : SITE_URL;
     document.getElementById('vs-text').textContent = template(teamLabel);
     document.getElementById('vote-share-overlay').classList.remove('hidden');
   }
   document.getElementById('vs-close-btn').addEventListener('click', () =>
     document.getElementById('vote-share-overlay').classList.add('hidden'));
   document.getElementById('vs-share-btn').addEventListener('click', () => {
-    shareViaBestMethod(document.getElementById('vs-text').textContent);
+    shareViaBestMethod(document.getElementById('vs-text').textContent, currentVoteShareUrl);
     document.getElementById('vote-share-overlay').classList.add('hidden');
   });
 
@@ -365,7 +379,7 @@
       refreshCounts();
       triggerBlizzard();
       const votedTeam = teamCode === home.code ? home : away;
-      setTimeout(() => showVoteShareOverlay(votedTeam.label), 1500);
+      setTimeout(() => showVoteShareOverlay(votedTeam.label, votedTeam.code), 1500);
     } catch (e) {
       console.error(e);
       showSnackbar('No se pudo registrar el voto. Probá de nuevo.');
