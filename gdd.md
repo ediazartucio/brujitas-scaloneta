@@ -1,4 +1,4 @@
-# CURANDERA FC — Project Document
+# Brujitas Scaloneta — Project Document
 *Game Design Document & Development Reference*
 *Last updated: July 2026*
 
