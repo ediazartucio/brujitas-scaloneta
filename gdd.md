@@ -1,4 +1,4 @@
-# Brujitas Scaloneta — Project Document
+# Freezer mundialista — Project Document
 *Game Design Document & Development Reference*
 *Last updated: July 2026*
 
