@@ -202,6 +202,27 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   padding:10px 22px; font-family:'Oswald'; font-size:14px; letter-spacing:1px; cursor:pointer;
 }
 #endcard button:hover{background:var(--candle); color:#1a1200;}
+
+#startcard{
+  position:fixed; inset:0; background:rgba(5,5,7,0.94);
+  display:flex; align-items:center; justify-content:center; z-index:60;
+  flex-direction:column; text-align:center; font-family:'Special Elite',monospace;
+  padding:20px;
+}
+#startcard h1{color:var(--ice); font-size:28px; text-shadow:0 0 14px rgba(191,233,255,.6); margin-bottom:10px;}
+#startcard p{color:var(--bone); font-size:14px; max-width:440px; line-height:1.6; margin:6px 0;}
+#startcard button{
+  margin-top:20px; background:transparent; border:1.5px solid var(--candle); color:var(--candle);
+  padding:12px 26px; font-family:'Oswald'; font-size:15px; letter-spacing:1px; cursor:pointer;
+}
+#startcard button:hover{background:var(--candle); color:#1a1200;}
+
+#pause-btn{
+  background:var(--broadcast); border:1px solid rgba(255,255,255,0.15);
+  color:var(--bone); font-size:16px; cursor:pointer; padding:2px 10px;
+  border-radius:4px; margin-left:8px;
+}
+#pause-btn:hover{border-color:var(--candle); color:var(--candle);}
 </style>
 </head>
 <body>
@@ -215,6 +236,7 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
       <span class="score" id="scoreB">0</span>
       <span class="team" id="nameB">RIVAL</span>
       <span class="clock" id="clock">00:00</span>
+      <button id="pause-btn" onclick="togglePause()">⏸</button>
     </div>
     <div id="prob-bar">
       <div class="label"><span>FAVORITISMO PRE-PARTIDO</span></div>
@@ -245,6 +267,13 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
     </div>
     <div id="players-grid"></div>
   </div>
+</div>
+
+<div id="startcard">
+  <h1>❄ EL FREEZER ESTÁ LISTO</h1>
+  <p>Escribí el nombre de un rival en un papel y metelo al freezer. Congelás hasta 3 jugadores a la vez, 5 segundos cada uno, después 7 de enfriamiento.</p>
+  <p>Congelar defensores abre el arco. Congelar delanteros los apaga. Vos no controlás la pelota — solo el hielo. El resto es fe.</p>
+  <button onclick="startMatch()">EMPEZAR ⚽</button>
 </div>
 
 <div id="endcard">
@@ -617,8 +646,17 @@ function maybeRivalCurse(){
 }
 
 /* ============ MAIN LOOP ============ */
+let paused = false;
+function togglePause(){
+  if(matchOver || !matchStarted) return;
+  paused = !paused;
+  document.getElementById("pause-btn").textContent = paused ? "▶" : "⏸";
+  if(!paused) tick(); // resume the loop
+}
+
 function tick(){
   if(matchOver) return;
+  if(paused) return; // loop just stops here; togglePause() restarts it on resume
   clockSec++;
   document.getElementById("clock").textContent =
     String(Math.floor(clockSec/60)).padStart(2,"0")+":"+String(clockSec%60).padStart(2,"0");
@@ -661,6 +699,7 @@ function endMatch(){
 }
 
 /* ============ START ============ */
+let matchStarted = false;
 function init(){
   document.getElementById("nameA").textContent = TEAM_A;
   document.getElementById("nameB").textContent = TEAM_B;
@@ -668,6 +707,12 @@ function init(){
   document.getElementById("prob-fill-b").style.width = (BASE_STRENGTH_B*100)+"%";
   buildRoster();
   buildField();
+  // tick() doesn't start until the player dismisses #startcard via startMatch()
+}
+function startMatch(){
+  if(matchStarted) return;
+  matchStarted = true;
+  document.getElementById("startcard").style.display = "none";
   setTimeout(tick, 900);
 }
 init();

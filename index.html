@@ -7,7 +7,7 @@
 <style>
   :root{
     --ice:#bfe9ff; --candle:#e8c468; --void:#0a0a0c; --bone:#e9e2d0;
-    --panel:#0e1620; --border:rgba(191,233,255,0.25);
+    --panel:#0e1620; --border:rgba(191,233,255,0.25); --err:#e06a5c;
   }
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:var(--void);color:var(--bone);
@@ -28,20 +28,25 @@
   #panel-game iframe{width:100%;height:calc(100vh - 84px);border:none;display:block;}
   .hidden{display:none;}
 
+  .flag{width:22px;height:16px;object-fit:cover;border-radius:2px;
+        box-shadow:0 0 0 1px rgba(255,255,255,0.15);vertical-align:middle;}
+
   .match-card{background:var(--panel);border:1px solid var(--border);
               border-radius:8px;padding:16px;text-align:center;}
   .match-card .stage{font-size:11px;color:var(--candle);letter-spacing:1px;text-transform:uppercase;}
   .match-card .venue{font-size:11px;color:#8a8a8a;margin-top:2px;}
-  .match-card .teams{font-size:18px;margin:14px 0 4px;color:var(--bone);}
+  .match-card .teams{font-size:17px;margin:14px 0 4px;color:var(--bone);
+                      display:flex;align-items:center;justify-content:center;gap:8px;}
   .match-card .kickoff{font-size:12px;color:#8a8a8a;}
 
   .vote-row{display:flex;gap:10px;margin-top:18px;}
   .vote-btn{flex:1;background:var(--panel);border:1.5px solid var(--border);
             color:var(--bone);border-radius:8px;padding:14px 8px;cursor:pointer;
-            font-family:inherit;font-size:13px;transition:border-color .2s,transform .1s;}
+            font-family:inherit;font-size:13px;transition:border-color .2s,transform .1s;
+            display:flex;flex-direction:column;align-items:center;gap:6px;}
   .vote-btn:hover:not(:disabled){border-color:var(--ice);transform:translateY(-2px);}
   .vote-btn:disabled{opacity:.5;cursor:not-allowed;}
-  .vote-btn .count{display:block;font-size:22px;color:var(--ice);margin-top:6px;}
+  .vote-btn .count{display:block;font-size:22px;color:var(--ice);}
   .vote-btn.mine{border-color:var(--candle);}
 
   #status-msg{text-align:center;font-size:12px;color:#8a8a8a;margin-top:14px;}
@@ -49,6 +54,25 @@
   #play-link{display:block;text-align:center;margin-top:20px;padding:12px;
              border:1.5px solid var(--candle);border-radius:8px;color:var(--candle);
              text-decoration:none;font-size:13px;letter-spacing:1px;}
+
+  #next-matches{margin-top:28px;}
+  #next-matches h2{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
+                    color:#8a8a8a;margin:0 0 10px;}
+  .fixture-row{display:flex;align-items:center;gap:8px;padding:8px 0;
+               border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;}
+  .fixture-row .fx-teams{flex:1;display:flex;align-items:center;gap:6px;}
+  .fixture-row .fx-time{color:#8a8a8a;font-size:11px;white-space:nowrap;}
+  .pill{font-size:9px;padding:2px 6px;border-radius:10px;letter-spacing:.5px;text-transform:uppercase;}
+  .pill.live{background:rgba(224,106,92,0.2);color:var(--err);}
+  .pill.upcoming{background:rgba(191,233,255,0.12);color:var(--ice);}
+  .pill.finished{background:rgba(255,255,255,0.06);color:#666;}
+
+  #snackbar{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);
+            background:var(--panel);border:1px solid var(--err);color:var(--bone);
+            padding:10px 16px;border-radius:8px;font-size:12px;opacity:0;
+            transition:opacity .25s,transform .25s;pointer-events:none;z-index:99;
+            max-width:90%;text-align:center;}
+  #snackbar.show{opacity:1;transform:translate(-50%,0);}
 </style>
 </head>
 <body>
@@ -68,17 +92,52 @@
   <div class="vote-row" id="vote-row"></div>
   <div id="status-msg"></div>
   <a href="#" id="play-link" class="hidden" data-tab-link="game">🎮 Ir al freezer del partido</a>
+
+  <div id="next-matches">
+    <h2>Próximos partidos</h2>
+    <div id="fixture-list"></div>
+  </div>
 </div>
 
 <div id="panel-game" class="hidden">
   <iframe id="game-frame" src=""></iframe>
 </div>
 
+<div id="snackbar"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js"></script>
 <script src="fixtures.js"></script>
 <script src="vote.js"></script>
 <script>
+  // ---------- SNACKBAR ----------
+  let snackTimer = null;
+  function showSnackbar(msg) {
+    const el = document.getElementById('snackbar');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  // ---------- FLAG / NAME HELPERS ----------
+  function flagImg(team) {
+    return team.flag ? `<img class="flag" src="https://flagcdn.com/24x18/${team.flag}.png" alt="">` : '';
+  }
+  function describeTeam(team) {
+    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code };
+    if (team.ref) {
+      const [kind, matchId] = team.ref.split(':');
+      const verb = kind === 'winner' ? 'Ganador' : 'Perdedor';
+      const refMatch = FIXTURES.matches.find(m => m.id === matchId);
+      if (refMatch && refMatch.home.name_es && refMatch.away.name_es) {
+        return { label: `${verb}: ${refMatch.home.name_es}/${refMatch.away.name_es}`, flagHtml: '', code: null };
+      }
+      return { label: `${verb} ${matchId.toUpperCase()}`, flagHtml: '', code: null };
+    }
+    return { label: '?', flagHtml: '', code: null };
+  }
+
   // ---------- TAB SWITCHING ----------
   const tabs = document.querySelectorAll('.tab');
   const panels = { vote: document.getElementById('panel-vote'), game: document.getElementById('panel-game') };
@@ -100,68 +159,126 @@
   const statusEl = document.getElementById('status-msg');
   const playLink = document.getElementById('play-link');
 
+  const STAGE_ES = {
+    quarterfinal: 'Cuartos de final', semifinal: 'Semifinal',
+    third_place: 'Tercer puesto', final: 'Final'
+  };
+
   if (!match) {
     cardEl.textContent = 'El torneo terminó. Nos vemos en 2030.';
   } else {
+    const home = describeTeam(match.home), away = describeTeam(match.away);
     const kickoffLocal = new Date(match.kickoff_utc).toLocaleString('es-AR', {
       dateStyle: 'medium', timeStyle: 'short'
     });
     cardEl.innerHTML = `
-      <div class="stage">${match.stage.replace('_',' ')}</div>
+      <div class="stage">${STAGE_ES[match.stage] || match.stage}</div>
       <div class="venue">${match.venue}</div>
-      <div class="teams">${match.home.name} vs ${match.away.name}</div>
+      <div class="teams">${home.flagHtml}${home.label} vs ${away.label}${away.flagHtml}</div>
       <div class="kickoff">${status === 'live' ? 'EN VIVO' : kickoffLocal}</div>
     `;
-    renderVoteButtons();
-    playLink.classList.remove('hidden');
-    refreshCounts();
-    subscribeToVotes(match.id, refreshCounts);
+    if (home.code && away.code) {
+      renderVoteButtons(home, away);
+      playLink.classList.remove('hidden');
+      refreshCounts();
+      subscribeToVotes(match.id, refreshCounts);
+    } else {
+      statusEl.textContent = 'Los equipos de este partido todavía no están definidos.';
+    }
   }
 
-  function renderVoteButtons() {
+  function renderVoteButtons(home, away) {
     const myVote = getMyVote(match.id);
     rowEl.innerHTML = '';
-    [match.home, match.away].forEach(team => {
+    [home, away].forEach(team => {
       const btn = document.createElement('button');
       btn.className = 'vote-btn' + (myVote === team.code ? ' mine' : '');
       btn.disabled = !votingOpen || !!myVote;
-      btn.innerHTML = `❄ Congelar a ${team.name}<span class="count" id="count-${team.code}">–</span>`;
+      btn.innerHTML = `${team.flagHtml}❄ Congelar a ${team.label}<span class="count" id="count-${team.code}">–</span>`;
       btn.addEventListener('click', () => onVote(team.code));
       rowEl.appendChild(btn);
     });
   }
 
   async function onVote(teamCode) {
-    const { error, alreadyVoted } = await castVote(match.id, teamCode);
-    if (alreadyVoted) { statusEl.textContent = 'Ya votaste en este partido.'; return; }
-    if (error) { statusEl.textContent = 'Algo falló, probá de nuevo.'; return; }
-    statusEl.textContent = '¡Voto registrado! El freezer está activo.';
-    renderVoteButtons();
-    refreshCounts();
+    try {
+      const { error, alreadyVoted } = await castVote(match.id, teamCode);
+      if (alreadyVoted) { showSnackbar('Ya votaste en este partido.'); return; }
+      if (error) { showSnackbar('No se pudo registrar el voto. Probá de nuevo.'); return; }
+      statusEl.textContent = '¡Voto registrado! El freezer está activo.';
+      const home = describeTeam(match.home), away = describeTeam(match.away);
+      renderVoteButtons(home, away);
+      refreshCounts();
+    } catch (e) {
+      console.error(e);
+      showSnackbar('No se pudo registrar el voto. Probá de nuevo.');
+    }
   }
 
   async function refreshCounts() {
-    const counts = await getVoteCounts(match.id);
-    [match.home, match.away].forEach(team => {
-      const el = document.getElementById(`count-${team.code}`);
-      if (el) el.textContent = counts[team.code] || 0;
-    });
+    try {
+      const counts = await getVoteCounts(match.id);
+      [match.home, match.away].forEach(team => {
+        if (!team.code) return;
+        const el = document.getElementById(`count-${team.code}`);
+        if (el) el.textContent = counts[team.code] || 0;
+      });
+    } catch (e) {
+      console.error(e);
+      showSnackbar('No se pudieron actualizar los votos.');
+    }
   }
 
+  // ---------- NEXT MATCHES LIST ----------
+  (function renderFixtureList() {
+    const listEl = document.getElementById('fixture-list');
+    listEl.innerHTML = FIXTURES.matches.map(m => {
+      const home = describeTeam(m.home), away = describeTeam(m.away);
+      const st = getMatchStatus(m);
+      const time = new Date(m.kickoff_utc).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const pillLabel = st === 'live' ? 'En vivo' : st === 'upcoming' ? 'Próximo' : 'Finalizado';
+      return `
+        <div class="fixture-row">
+          <span class="pill ${st}">${pillLabel}</span>
+          <span class="fx-teams">${home.flagHtml} ${home.label} vs ${away.label} ${away.flagHtml}</span>
+          <span class="fx-time">${time}</span>
+        </div>`;
+    }).join('');
+  })();
+
   // ---------- GAME PANEL ----------
+  // Which team you're freezing is decided by YOUR OWN vote (so it's never
+  // a mystery which team you're affecting) — falls back to the community's
+  // current lead only if you haven't voted on this match yet.
   let gameLoaded = false;
   function loadGameFrame() {
     if (gameLoaded || !match) return;
+    const home = describeTeam(match.home), away = describeTeam(match.away);
+    if (!home.code || !away.code) return; // teams not resolved yet, nothing to load
+
+    const myVote = getMyVote(match.id);
+    if (myVote) {
+      const frozen = myVote === home.code ? home : away;
+      const yours = frozen === home ? away : home;
+      launchGame(yours, frozen);
+      return;
+    }
     getVoteCounts(match.id).then(counts => {
-      const homeVotes = counts[match.home.code] || 0;
-      const awayVotes = counts[match.away.code] || 0;
-      // whichever team has more freeze votes is the rival (TEAM_B) in the game
-      const frozen = awayVotes >= homeVotes ? match.away : match.home;
-      const yours = frozen === match.home ? match.away : match.home;
-      const params = new URLSearchParams({ team_a: yours.name, team_b: frozen.name });
-      document.getElementById('game-frame').src = `brujitas.html?${params}`;
-      gameLoaded = true;
+      const homeVotes = counts[home.code] || 0;
+      const awayVotes = counts[away.code] || 0;
+      const frozen = awayVotes >= homeVotes ? away : home;
+      const yours = frozen === home ? away : home;
+      launchGame(yours, frozen);
+    }).catch(e => {
+      console.error(e);
+      showSnackbar('No se pudo cargar el partido.');
     });
+  }
+
+  function launchGame(yours, frozen) {
+    const params = new URLSearchParams({ team_a: yours.label, team_b: frozen.label });
+    document.getElementById('game-frame').src = `brujitas.html?${params}`;
+    gameLoaded = true;
   }
 </script>
 </body>
