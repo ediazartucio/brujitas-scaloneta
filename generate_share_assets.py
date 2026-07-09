@@ -47,7 +47,7 @@ PAPELITO_SVG = """<svg width="420" height="300" viewBox="0 0 420 300" xmlns="htt
     <rect x="-120" y="-76" width="240" height="152" rx="4" fill="none" stroke="#e8c468" stroke-width="3"/>
     <polygon points="80,76 120,76 120,38" fill="#e0dac6"/>
     <rect x="-48" y="-96" width="96" height="26" rx="2" fill="#e7e2cc" opacity="0.9" transform="rotate(2)"/>
-    <text x="0" y="-6" text-anchor="middle" font-family="Breip" font-size="{fontsize}" fill="#1a1a1c" stroke="#1a1a1c" stroke-width="{strokewidth}" paint-order="stroke fill">{name}</text>
+    <text x="0" y="-6" text-anchor="middle" font-family="Humor Sans" font-size="{fontsize}" fill="#1a1a1c">{name}</text>
   </g>
 </svg>"""
 
@@ -77,15 +77,13 @@ SHARE_HTML = """<!DOCTYPE html>
 PLACEMENT = {"x": 840, "y": 300, "w": 320, "h": 229}
 
 def font_size_for(name):
-    # longer team names need a smaller font to keep fitting inside the papelito;
-    # stroke-width fakes a bolder weight since Breip only ships one weight
-    return (56, 1.6) if len(name) <= 9 else (46, 1.4)
+    # longer team names need a smaller font to keep fitting inside the papelito
+    return 42 if len(name) <= 9 else 34
 
 def generate():
     base = Image.open(BASE_IMAGE).convert("RGBA")
     for code, name in TEAMS:
-        fontsize, strokewidth = font_size_for(name)
-        svg = PAPELITO_SVG.format(name=name, fontsize=fontsize, strokewidth=strokewidth)
+        svg = PAPELITO_SVG.format(name=name, fontsize=font_size_for(name))
         png_bytes = cairosvg.svg2png(bytestring=svg.encode(), output_width=840, output_height=600)
         import io
         papelito = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
