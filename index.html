@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Curandera FC — Mundial 2026</title>
+<title>Brujitas Scaloneta — Mundial 2026</title>
 <style>
   :root{
     --ice:#bfe9ff; --candle:#e8c468; --void:#0a0a0c; --bone:#e9e2d0;
@@ -78,7 +78,7 @@
 <body>
 
 <header>
-  <h1>❄ CURANDERA FC</h1>
+  <h1>❄ Brujitas Scaloneta</h1>
   <p>Mundial 2026 — el freezer colectivo</p>
 </header>
 
@@ -125,7 +125,7 @@
     return team.flag ? `<img class="flag" src="https://flagcdn.com/24x18/${team.flag}.png" alt="">` : '';
   }
   function describeTeam(team) {
-    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code };
+    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code, flag: team.flag || '' };
     if (team.ref) {
       const [kind, matchId] = team.ref.split(':');
       const verb = kind === 'winner' ? 'Ganador' : 'Perdedor';
@@ -247,38 +247,27 @@
   })();
 
   // ---------- GAME PANEL ----------
-  // Which team you're freezing is decided by YOUR OWN vote (so it's never
-  // a mystery which team you're affecting) — falls back to the community's
-  // current lead only if you haven't voted on this match yet.
+  // Which side you play is decided entirely inside brujitas.html's own
+  // team-picker screen — the live vote only comes along as a small difficulty
+  // signal (handled there too), never as a forced assignment.
   let gameLoaded = false;
   function loadGameFrame() {
     if (gameLoaded || !match) return;
     const home = describeTeam(match.home), away = describeTeam(match.away);
     if (!home.code || !away.code) return; // teams not resolved yet, nothing to load
 
-    const myVote = getMyVote(match.id);
-    if (myVote) {
-      const frozen = myVote === home.code ? home : away;
-      const yours = frozen === home ? away : home;
-      launchGame(yours, frozen);
-      return;
-    }
     getVoteCounts(match.id).then(counts => {
-      const homeVotes = counts[home.code] || 0;
-      const awayVotes = counts[away.code] || 0;
-      const frozen = awayVotes >= homeVotes ? away : home;
-      const yours = frozen === home ? away : home;
-      launchGame(yours, frozen);
+      const params = new URLSearchParams({
+        team1_name: home.label, team1_code: home.code, team1_flag: home.flag,
+        team2_name: away.label, team2_code: away.code, team2_flag: away.flag,
+        votes1: counts[home.code] || 0, votes2: counts[away.code] || 0
+      });
+      document.getElementById('game-frame').src = `brujitas.html?${params}`;
+      gameLoaded = true;
     }).catch(e => {
       console.error(e);
       showSnackbar('No se pudo cargar el partido.');
     });
-  }
-
-  function launchGame(yours, frozen) {
-    const params = new URLSearchParams({ team_a: yours.label, team_b: frozen.label });
-    document.getElementById('game-frame').src = `brujitas.html?${params}`;
-    gameLoaded = true;
   }
 </script>
 </body>

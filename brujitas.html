@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>CURANDERA FC — Partido Brujo</title>
+<title>Brujitas Scaloneta — Partido</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Special+Elite&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -205,7 +205,7 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
 
 #startcard{
   position:fixed; inset:0; background:rgba(5,5,7,0.94);
-  display:flex; align-items:center; justify-content:center; z-index:60;
+  display:none; align-items:center; justify-content:center; z-index:60;
   flex-direction:column; text-align:center; font-family:'Special Elite',monospace;
   padding:20px;
 }
@@ -223,6 +223,24 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   border-radius:4px; margin-left:8px;
 }
 #pause-btn:hover{border-color:var(--candle); color:var(--candle);}
+
+#teampick{
+  position:fixed; inset:0; background:rgba(5,5,7,0.94);
+  display:flex; align-items:center; justify-content:center; z-index:70;
+  flex-direction:column; text-align:center; font-family:'Special Elite',monospace;
+  padding:20px;
+}
+#teampick h1{color:var(--ice); font-size:26px; text-shadow:0 0 14px rgba(191,233,255,.6); margin-bottom:10px;}
+#teampick p{color:var(--bone); font-size:14px; max-width:440px; line-height:1.6; margin:6px 0 18px;}
+#teampick-row{display:flex; gap:16px;}
+#teampick-row button{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  background:transparent; border:1.5px solid rgba(255,255,255,0.2); color:var(--bone);
+  padding:16px 22px; font-family:'Oswald'; font-size:14px; letter-spacing:.5px; cursor:pointer;
+  border-radius:6px;
+}
+#teampick-row button:hover{border-color:var(--candle); color:var(--candle);}
+#teampick-row img{width:40px; height:28px; object-fit:cover; border-radius:3px;}
 </style>
 </head>
 <body>
@@ -269,6 +287,12 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
   </div>
 </div>
 
+<div id="teampick">
+  <h1>❄ ELEGÍ TU BANDO</h1>
+  <p>¿A quién NO vas a congelar? Ese es tu equipo. El otro se llena de papelitos.</p>
+  <div id="teampick-row"></div>
+</div>
+
 <div id="startcard">
   <h1>❄ EL FREEZER ESTÁ LISTO</h1>
   <p>Escribí el nombre de un rival en un papel y metelo al freezer. Congelás hasta 3 jugadores a la vez, 5 segundos cada uno, después 7 de enfriamiento.</p>
@@ -285,12 +309,39 @@ html,body{margin:0;padding:0;background:var(--void);color:var(--bone);font-famil
 <script>
 /* ============ CONFIG ============ */
 const params = new URLSearchParams(location.search);
-const TEAM_A = params.get('team_a') || "TU EQUIPO";
-const TEAM_B = params.get('team_b') || "RIVAL F.C.";
+const TEAM1 = {
+  name: params.get('team1_name') || 'Tu equipo',
+  code: params.get('team1_code') || 'T1',
+  flag: params.get('team1_flag') || ''
+};
+const TEAM2 = {
+  name: params.get('team2_name') || 'Rival F.C.',
+  code: params.get('team2_code') || 'T2',
+  flag: params.get('team2_flag') || ''
+};
+const VOTES1 = parseInt(params.get('votes1') || '0', 10);
+const VOTES2 = parseInt(params.get('votes2') || '0', 10);
+
+// Set once the player picks a side in #teampick — nothing below reads these
+// before that point.
+let TEAM_A, TEAM_B, VOTE_BIAS_A = 0, VOTE_BIAS_B = 0;
 
 // Win-probability baked from "last 5 years" stat flavor — purely cosmetic input.
 const BASE_STRENGTH_A = 0.56; // 56% favored, like a defending-champion narrative
 const BASE_STRENGTH_B = 0.44;
+
+// Small, capped nudge from the live community vote: whichever real team has
+// more freeze votes is treated as the "losing" side and gets a slight
+// disadvantage, regardless of which slot (A/B) they end up in. Capped at
+// 3 percentage points even in a total landslide vote — meant to be felt,
+// not decisive; freeze skill still dominates the outcome.
+function computeVoteBias() {
+  const total = VOTES1 + VOTES2;
+  if (total === 0 || VOTES1 === VOTES2) return { bias1: 0, bias2: 0 };
+  const diffRatio = Math.abs(VOTES1 - VOTES2) / total;
+  const effect = diffRatio * 0.03;
+  return VOTES1 > VOTES2 ? { bias1: -effect, bias2: effect } : { bias1: effect, bias2: -effect };
+}
 
 const RIVAL_NAMES = ["Kross","Dvalin","Marek","Yusuf","Bjorn","Tahar","Solano","Hagen","Imre","Castellan","Novak","Eriq","Tariq","Halvard"];
 const RIVAL_ROLES = ["DEF","DEF","DEF","DEF","MED","MED","MED","DEL","DEL","DEL","ARQ"];
@@ -461,8 +512,8 @@ function resolveGoalChance(forTeamA){
   const frozenDefCount = players.filter(p=> p.status==="active" && p.frozenUntil>clockSec && (p.role==="DEF"||p.role==="ARQ")).length;
   const frozenAtkCount = players.filter(p=> p.status==="active" && p.frozenUntil>clockSec && p.role==="DEL").length;
   let base = forTeamA
-    ? (0.14 + frozenDefCount*0.09 + manDownB*0.04 - manDownA*0.03)
-    : (0.13 - frozenAtkCount*0.05 + manDownA*0.04 - manDownB*0.03);
+    ? (0.14 + frozenDefCount*0.09 + manDownB*0.04 - manDownA*0.03 + VOTE_BIAS_A)
+    : (0.13 - frozenAtkCount*0.05 + manDownA*0.04 - manDownB*0.03 + VOTE_BIAS_B);
   return Math.max(0.02, Math.min(0.38, base));
 }
 
@@ -698,16 +749,43 @@ function endMatch(){
   card.style.display = "flex";
 }
 
+/* ============ TEAM PICK ============ */
+function flagImg(team) {
+  return team.flag ? `<img src="https://flagcdn.com/48x36/${team.flag}.png" alt="">` : '';
+}
+
+function renderTeamPick() {
+  const row = document.getElementById("teampick-row");
+  row.innerHTML = `
+    <button onclick="pickTeam(1)">${flagImg(TEAM1)}<span>${TEAM1.name}</span></button>
+    <button onclick="pickTeam(2)">${flagImg(TEAM2)}<span>${TEAM2.name}</span></button>
+  `;
+}
+
+function pickTeam(side) {
+  const { bias1, bias2 } = computeVoteBias();
+  if (side === 1) {
+    TEAM_A = TEAM1.name; TEAM_B = TEAM2.name;
+    VOTE_BIAS_A = bias1; VOTE_BIAS_B = bias2;
+  } else {
+    TEAM_A = TEAM2.name; TEAM_B = TEAM1.name;
+    VOTE_BIAS_A = bias2; VOTE_BIAS_B = bias1;
+  }
+  document.getElementById("nameA").textContent = TEAM_A;
+  document.getElementById("nameB").textContent = TEAM_B;
+  document.getElementById("prob-fill-a").style.width = ((BASE_STRENGTH_A + VOTE_BIAS_A) * 100) + "%";
+  document.getElementById("prob-fill-b").style.width = ((BASE_STRENGTH_B + VOTE_BIAS_B) * 100) + "%";
+  document.getElementById("teampick").style.display = "none";
+  document.getElementById("startcard").style.display = "flex";
+}
+
 /* ============ START ============ */
 let matchStarted = false;
 function init(){
-  document.getElementById("nameA").textContent = TEAM_A;
-  document.getElementById("nameB").textContent = TEAM_B;
-  document.getElementById("prob-fill-a").style.width = (BASE_STRENGTH_A*100)+"%";
-  document.getElementById("prob-fill-b").style.width = (BASE_STRENGTH_B*100)+"%";
   buildRoster();
   buildField();
-  // tick() doesn't start until the player dismisses #startcard via startMatch()
+  renderTeamPick();
+  // team names / prob bar / tick loop all wait on pickTeam() -> startMatch()
 }
 function startMatch(){
   if(matchStarted) return;
