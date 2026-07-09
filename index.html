@@ -73,14 +73,54 @@
             transition:opacity .25s,transform .25s;pointer-events:none;z-index:99;
             max-width:90%;text-align:center;}
   #snackbar.show{opacity:1;transform:translate(-50%,0);}
+
+  #share-general-btn{
+    margin-top:10px;background:var(--panel);border:1px solid var(--border);
+    color:var(--ice);font-family:inherit;font-size:12px;padding:6px 14px;
+    border-radius:20px;cursor:pointer;
+  }
+  #share-general-btn:hover{border-color:var(--ice);}
+
+  #share-fallback{
+    position:fixed;z-index:98;top:70px;left:50%;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:8px;display:none;gap:6px;flex-direction:column;min-width:160px;
+  }
+  #share-fallback.show{display:flex;}
+  #share-fallback a, #share-fallback button{
+    background:none;border:none;color:var(--bone);font-family:inherit;
+    font-size:13px;text-align:left;padding:8px 10px;border-radius:6px;
+    cursor:pointer;text-decoration:none;
+  }
+  #share-fallback a:hover, #share-fallback button:hover{background:rgba(255,255,255,0.06);}
+
+  #vote-share-overlay{
+    position:fixed;inset:0;background:rgba(5,5,7,0.7);z-index:97;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  #vote-share-overlay.hidden{display:none;}
+  .vs-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:20px;max-width:340px;text-align:center;
+  }
+  .vs-card p{font-size:14px;line-height:1.5;margin:0 0 16px;}
+  .vs-actions{display:flex;gap:10px;justify-content:center;}
+  .vs-actions button{
+    font-family:inherit;font-size:13px;padding:10px 16px;border-radius:6px;cursor:pointer;
+  }
+  #vs-share-btn{background:var(--candle);border:none;color:#1a1200;}
+  .vs-secondary{background:none;border:1px solid var(--border);color:var(--bone);}
 </style>
 </head>
 <body>
 
 <header>
   <h1>❄ Freezer mundialista</h1>
-  <p>Mundial 2026 — el freezer colectivo</p>
+  <p>Votá con miles de personas para congelar al mismo rival, al mismo tiempo. Elegí a quién congelamos juntos.</p>
+  <button id="share-general-btn">📤 Compartir</button>
 </header>
+
+<div id="share-fallback"></div>
 
 <div id="tabs">
   <button class="tab active" data-tab="vote">VOTAR</button>
@@ -103,6 +143,16 @@
   <iframe id="game-frame" src=""></iframe>
 </div>
 
+<div id="vote-share-overlay" class="hidden">
+  <div class="vs-card">
+    <p id="vs-text"></p>
+    <div class="vs-actions">
+      <button id="vs-share-btn">📤 Compartir</button>
+      <button id="vs-close-btn" class="vs-secondary">Listo</button>
+    </div>
+  </div>
+</div>
+
 <div id="snackbar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -119,6 +169,59 @@
     clearTimeout(snackTimer);
     snackTimer = setTimeout(() => el.classList.remove('show'), 3200);
   }
+
+  // ---------- SHARING ----------
+  const SITE_URL = location.origin + location.pathname;
+  const GENERAL_SHARE_TEXT = '❄ Sumate al freezer colectivo del Mundial 2026 — votá y congelá con nosotros:';
+
+  function shareViaBestMethod(text) {
+    if (navigator.share) {
+      navigator.share({ text, url: SITE_URL }).catch(() => {}); // ignore user-cancelled
+    } else {
+      openShareFallback(text);
+    }
+  }
+
+  function openShareFallback(text) {
+    const encoded = encodeURIComponent(`${text} ${SITE_URL}`);
+    const panel = document.getElementById('share-fallback');
+    panel.innerHTML = `
+      <a href="https://twitter.com/intent/tweet?text=${encoded}" target="_blank" rel="noopener">𝕏 Postear en X</a>
+      <a href="https://wa.me/?text=${encoded}" target="_blank" rel="noopener">💬 WhatsApp</a>
+      <button type="button" data-copy-text="${text.replace(/"/g, '&quot;')}">🔗 Copiar link</button>
+    `;
+    panel.querySelector('[data-copy-text]').addEventListener('click', function () {
+      navigator.clipboard.writeText(`${this.dataset.copyText} ${SITE_URL}`)
+        .then(() => showSnackbar('Link copiado.'));
+      closeShareFallback();
+    });
+    panel.classList.add('show');
+  }
+
+  function closeShareFallback() {
+    document.getElementById('share-fallback').classList.remove('show');
+  }
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('share-fallback');
+    if (panel.classList.contains('show') && !panel.contains(e.target) && e.target.id !== 'share-general-btn') {
+      closeShareFallback();
+    }
+  });
+
+  document.getElementById('share-general-btn').addEventListener('click', () => shareViaBestMethod(GENERAL_SHARE_TEXT));
+
+  // Post-vote prompt — shown once, right when THIS user's own vote registers
+  // (not on every realtime update from other voters).
+  function showVoteShareOverlay(teamLabel) {
+    document.getElementById('vs-text').textContent = `❄ Votaste para congelar a ${teamLabel} en el Mundial 2026. ¿Lo contás?`;
+    document.getElementById('vote-share-overlay').classList.remove('hidden');
+  }
+  document.getElementById('vs-close-btn').addEventListener('click', () =>
+    document.getElementById('vote-share-overlay').classList.add('hidden'));
+  document.getElementById('vs-share-btn').addEventListener('click', () => {
+    shareViaBestMethod(document.getElementById('vs-text').textContent);
+    document.getElementById('vote-share-overlay').classList.add('hidden');
+  });
 
   // ---------- FLAG / NAME HELPERS ----------
   function flagImg(team) {
@@ -209,6 +312,8 @@
       const home = describeTeam(match.home), away = describeTeam(match.away);
       renderVoteButtons(home, away);
       refreshCounts();
+      const votedTeam = teamCode === home.code ? home : away;
+      showVoteShareOverlay(votedTeam.label);
     } catch (e) {
       console.error(e);
       showSnackbar('No se pudo registrar el voto. Probá de nuevo.');
