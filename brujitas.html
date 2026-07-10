@@ -335,55 +335,104 @@ const REAL_ROSTERS = {
     keeper: "Maignan",
     def: ["Saliba", "Upamecano", "T. Hernandez", "Koundé"],
     med: ["Tchouaméni", "Rabiot", "Zaïre-Emery"],
-    del: ["Mbappé", "Dembélé", "Olise"]
+    del: ["Mbappé", "Dembélé", "Olise"],
+    bench: {
+      keeper: ["Samba", "Risser"],
+      def: ["Digne", "Gusto", "L. Hernandez", "Konaté", "Lacroix"],
+      med: ["Kanté", "Koné"],
+      del: ["Barcola", "Akliouche", "Cherki", "Doué", "Thuram", "Mateta"]
+    }
   },
   MAR: {
     keeper: "Bounou",
     def: ["Hakimi", "Mazraoui", "Riad", "Salah-Eddine"],
     med: ["Amrabat", "El Khannouss", "Ounahi"],
-    del: ["Brahim Díaz", "El Kaabi", "Rahimi"]
+    del: ["Brahim Díaz", "El Kaabi", "Rahimi"],
+    bench: {
+      keeper: ["El Kajoui", "Tagnaouti"],
+      def: ["Saadane", "El Ouahdi", "Diop", "Belammari", "Halhal"],
+      med: ["Bouaddi", "Talbi", "Saibari", "El Mourabet"],
+      del: ["Talbi"]
+    }
   },
   ESP: {
     keeper: "Simón",
     def: ["Cucurella", "Cubarsí", "Laporte", "Porro"],
     med: ["Rodri", "Pedri", "Gavi"],
-    del: ["Yamal", "Nico Williams", "Olmo"]
+    del: ["Yamal", "Nico Williams", "Olmo"],
+    bench: {
+      keeper: ["Raya", "Joan García"],
+      def: ["Grimaldo", "E. García", "Llorente", "Pubill"],
+      med: ["Fabián Ruiz", "Zubimendi", "Baena", "Merino"],
+      del: ["Oyarzabal", "Yeremy Pino", "Ferran Torres", "Borja Iglesias"]
+    }
   },
   BEL: {
     keeper: "Courtois",
     def: ["Meunier", "Castagne", "Theate", "Debast"],
     med: ["De Bruyne", "Tielemans", "Onana"],
-    del: ["Lukaku", "Doku", "De Ketelaere"]
+    del: ["Lukaku", "Doku", "De Ketelaere"],
+    bench: {
+      keeper: ["Lammens", "Penders"],
+      def: ["De Cuyper", "De Winter", "Mechele", "Ngoy", "Seys"],
+      med: ["Raskin", "Vanaken", "Witsel"],
+      del: ["Trossard", "Lukebakio", "Saelemaekers", "Fernández-Pardo", "Moreira"]
+    }
   },
   NOR: {
     keeper: "Nyland",
     def: ["Ryerson", "Ajer", "Østigård", "Bjørkan"],
     med: ["Ødegaard", "Berge", "Aursnes"],
-    del: ["Haaland", "Sørloth", "Nusa"]
+    del: ["Haaland", "Sørloth", "Nusa"],
+    bench: {
+      keeper: ["Selvik", "Tangvik"],
+      def: ["Pedersen", "Wolfe", "Heggem", "Langås", "Falchener"],
+      med: ["Berg", "Thorstvedt", "Thorsby", "Aasgaard"],
+      del: ["Strand Larsen", "Bobb", "Schjelderup", "Hauge"]
+    }
   },
   ENG: {
     keeper: "Pickford",
     def: ["Guéhi", "Stones", "James", "Konsa"],
     med: ["Rice", "Bellingham", "Mainoo"],
-    del: ["Kane", "Saka", "Rashford"]
+    del: ["Kane", "Saka", "Rashford"],
+    bench: {
+      keeper: ["Trafford", "D. Henderson"],
+      def: ["Burn", "Chalobah", "Livramento", "O'Reilly", "Spence"],
+      med: ["Anderson", "Eze", "J. Henderson", "Rogers"],
+      del: ["Gordon", "Madueke", "Toney", "Watkins"]
+    }
   },
   ARG: {
     keeper: "E. Martínez",
     def: ["Romero", "Otamendi", "Molina", "L. Martínez"],
     med: ["E. Fernández", "Mac Allister", "De Paul"],
-    del: ["Messi", "Álvarez", "Lautaro"]
+    del: ["Messi", "Álvarez", "Lautaro"],
+    bench: {
+      keeper: ["Rulli", "Musso"],
+      def: ["Montiel", "Balerdi", "Medina", "Tagliafico"],
+      med: ["Paredes", "Palacios", "Lo Celso", "Barco"],
+      del: ["Paz", "Almada", "N. González", "G. Simeone", "J. López"]
+    }
   },
   SUI: {
     keeper: "Kobel",
     def: ["Akanji", "Elvedi", "Rodríguez", "Widmer"],
     med: ["Xhaka", "Freuler", "Jashari"],
-    del: ["Embolo", "Ndoye", "Vargas"]
+    del: ["Embolo", "Ndoye", "Vargas"],
+    bench: {
+      keeper: ["Mvogo", "Keller"],
+      def: ["Amenda", "Comert", "Jaquez", "Muheim"],
+      med: ["Aebischer", "Rieder", "Sow", "Zakaria"],
+      del: ["Amdouni", "Okafor", "Fassnacht", "Itten"]
+    }
   }
 };
 
 // Set once the player picks a side in #teampick — nothing below reads these
 // before that point.
 let TEAM_A, TEAM_B, VOTE_BIAS_A = 0, VOTE_BIAS_B = 0;
+let currentRivalCode = null; // set in pickTeam() — used by injureRival() to pull real bench names
 
 // Win-probability baked from "last 5 years" stat flavor — purely cosmetic input.
 const BASE_STRENGTH_A = 0.56; // 56% favored, like a defending-champion narrative
@@ -663,6 +712,23 @@ function sendOffRival(){
   if(d) d.remove();
 }
 
+// Per-role cycling indices so DEF subs don't burn through the MED bench pool, etc.
+const benchIdxByRole = { ARQ: 0, DEF: 0, MED: 0, DEL: 0 };
+
+function nextBenchName(role){
+  const real = REAL_ROSTERS[currentRivalCode];
+  const pool = real && real.bench && real.bench[role.toLowerCase() === "arq" ? "keeper" : role.toLowerCase()];
+  if (pool && pool.length) {
+    const name = pool[benchIdxByRole[role] % pool.length];
+    benchIdxByRole[role]++;
+    return name;
+  }
+  // no real bench data for this team/role — fall back to the generic fantasy pool
+  const name = BENCH_NAMES[benchIdx % BENCH_NAMES.length] + " " + (20 + benchIdx);
+  benchIdx++;
+  return name;
+}
+
 function injureRival(causedByFreeze){
   const tickerEl = document.getElementById("ticker");
   const candidates = players.filter(p=>p.status==="active");
@@ -678,8 +744,7 @@ function injureRival(causedByFreeze){
   }
   subsB--;
   document.getElementById("subsB").textContent = subsB;
-  const newName = BENCH_NAMES[benchIdx % BENCH_NAMES.length] + " " + (20+benchIdx);
-  benchIdx++;
+  const newName = nextBenchName(victim.role); // same role as victim — a DEL sub only ever replaces a DEL
   victim.name = newName;
   victim.frozenUntil = 0;
   victim.cooldownUntil = 0;
@@ -846,6 +911,7 @@ function pickTeam(side) {
     rivalCode = TEAM1.code;
     setTeamColors(TEAM2.color, TEAM1.color);
   }
+  currentRivalCode = rivalCode;
   document.getElementById("nameA").textContent = TEAM_A;
   document.getElementById("nameB").textContent = TEAM_B;
   document.getElementById("prob-fill-a").style.width = ((BASE_STRENGTH_A + VOTE_BIAS_A) * 100) + "%";
