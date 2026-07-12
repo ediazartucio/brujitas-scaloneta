@@ -19,6 +19,7 @@ const FIXTURES = {
       away: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" } },
     { id: "m100", stage: "quarterfinal", kickoff_utc: "2026-07-12T01:00:00Z", venue: "Arrowhead Stadium, Kansas City",
       vote_window_minutes: 210, // went to extra time / possibly penalties, regular 120min window isn't enough
+      result: { home: 3, away: 1, note: "a.e.t." },
       home: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" },
       away: { name_es: "Suiza",       code: "SUI", flag: "ch",     color: "#D52B1E" } },
     { id: "m101", stage: "semifinal",    kickoff_utc: "2026-07-14T19:00:00Z", venue: "AT&T Stadium, Dallas",
@@ -26,7 +27,7 @@ const FIXTURES = {
       away: { name_es: "España",      code: "ESP", flag: "es",     color: "#C60B1E" } }, // beat Bélgica
     { id: "m102", stage: "semifinal",    kickoff_utc: "2026-07-15T19:00:00Z", venue: "Mercedes-Benz Stadium, Atlanta",
       home: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" },   // beat Noruega
-      away: { ref: "winner:m100" } }, // still pending — Argentina/Suiza in extra time
+      away: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" } }, // beat Suiza, a.e.t.
     { id: "m103", stage: "third_place",  kickoff_utc: "2026-07-18T21:00:00Z", venue: "Hard Rock Stadium, Miami",
       home: { ref: "loser:m101" }, away: { ref: "loser:m102" } },
     { id: "m104", stage: "final",        kickoff_utc: "2026-07-19T19:00:00Z", venue: "MetLife Stadium, New Jersey",
@@ -42,6 +43,7 @@ function windowFor(match) {
 
 function getActiveMatch(now = new Date()) {
   for (const match of FIXTURES.matches) {
+    if (match.result) continue; // already decided, never treat as the live/active one
     const kickoff = new Date(match.kickoff_utc);
     const closesAt = new Date(kickoff.getTime() + windowFor(match) * 60000);
     if (now >= kickoff && now < closesAt) {
@@ -49,7 +51,7 @@ function getActiveMatch(now = new Date()) {
     }
   }
   const upcoming = FIXTURES.matches
-    .filter(m => new Date(m.kickoff_utc) > now)
+    .filter(m => !m.result && new Date(m.kickoff_utc) > now)
     .sort((a, b) => new Date(a.kickoff_utc) - new Date(b.kickoff_utc))[0];
 
   return upcoming
@@ -59,6 +61,7 @@ function getActiveMatch(now = new Date()) {
 
 // Status label for every match, used by the "next matches" list.
 function getMatchStatus(match, now = new Date()) {
+  if (match.result) return "finished"; // a recorded result is authoritative, independent of elapsed time
   const kickoff = new Date(match.kickoff_utc);
   const closesAt = new Date(kickoff.getTime() + windowFor(match) * 60000);
   if (now >= closesAt) return "finished";

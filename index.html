@@ -67,8 +67,12 @@
   #next-matches{margin-top:28px;}
   #next-matches h2{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
                     color:#8a8a8a;margin:0 0 10px;}
-  .fixture-row{display:flex;align-items:center;gap:8px;padding:8px 0;
-               border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;}
+  .fixture-row{display:flex;align-items:center;gap:8px;padding:8px 6px;
+               border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;
+               border-radius:6px;}
+  .fixture-row.clickable{cursor:pointer;}
+  .fixture-row.clickable:hover{background:rgba(255,255,255,0.05);}
+  .fixture-row.selected{background:rgba(191,233,255,0.1);border:1px solid rgba(191,233,255,0.3);}
   .fixture-row .fx-teams{flex:1;display:flex;align-items:center;gap:6px;}
   .fixture-row .fx-time{color:#8a8a8a;font-size:11px;white-space:nowrap;}
   .fixture-row .fx-note{color:#8a8a8a;font-size:10px;}
@@ -324,7 +328,6 @@
   );
 
   // ---------- VOTE PANEL ----------
-  const { match, status, votingOpen } = getActiveMatch();
   const cardEl = document.getElementById('match-card');
   const rowEl = document.getElementById('vote-row');
   const statusEl = document.getElementById('status-msg');
@@ -335,9 +338,32 @@
     third_place: 'Tercer puesto', final: 'Final'
   };
 
-  if (!match) {
-    cardEl.textContent = 'El torneo terminó. Nos vemos en 2030.';
-  } else {
+  let currentMatch = null;
+  let currentVotingOpen = false;
+  let voteChannel = null; // current realtime subscription, unsubscribed before switching matches
+  let gameLoaded = false; // declared here (not down in the GAME PANEL section) since loadMatch() touches it immediately on first run
+
+  function loadMatch(matchId) {
+    const match = matchId
+      ? FIXTURES.matches.find(m => m.id === matchId)
+      : getActiveMatch().match;
+
+    if (voteChannel) { supabaseClient.removeChannel(voteChannel); voteChannel = null; }
+    statusEl.textContent = '';
+    playLink.classList.add('hidden');
+
+    if (!match) {
+      currentMatch = null;
+      cardEl.textContent = 'El torneo terminó. Nos vemos en 2030.';
+      rowEl.innerHTML = '';
+      renderFixtureList();
+      return;
+    }
+
+    currentMatch = match;
+    const st = getMatchStatus(match);
+    currentVotingOpen = st !== 'finished';
+
     const home = describeTeam(match.home), away = describeTeam(match.away);
     const kickoffLocal = new Date(match.kickoff_utc).toLocaleString('es-AR', {
       dateStyle: 'medium', timeStyle: 'short'
@@ -346,25 +372,33 @@
       <div class="stage">${STAGE_ES[match.stage] || match.stage}</div>
       <div class="venue">${match.venue}</div>
       <div class="teams">${home.flagHtml}${home.label} vs ${away.label}${away.flagHtml}</div>
-      <div class="kickoff">${status === 'live' ? 'EN VIVO' : kickoffLocal}</div>
+      <div class="kickoff">${st === 'live' ? 'EN VIVO' : kickoffLocal}</div>
     `;
     if (home.code && away.code) {
       renderVoteButtons(home, away);
       playLink.classList.remove('hidden');
       refreshCounts();
-      subscribeToVotes(match.id, refreshCounts);
+      voteChannel = subscribeToVotes(match.id, refreshCounts);
     } else {
       statusEl.textContent = 'Los equipos de este partido todavía no están definidos.';
     }
+    renderFixtureList(); // refresh the "selected" highlight to match the newly loaded match
+
+    // If someone's sitting on the Jugar tab and switches matches, the game
+    // should follow — reload it against the newly selected match.
+    gameLoaded = false;
+    if (!document.getElementById('panel-game').classList.contains('hidden')) loadGameFrame();
   }
 
+  loadMatch(); // defaults to the active match
+
   function renderVoteButtons(home, away) {
-    const myVote = getMyVote(match.id);
+    const myVote = getMyVote(currentMatch.id);
     rowEl.innerHTML = '';
     [home, away].forEach(team => {
       const btn = document.createElement('button');
       btn.className = 'vote-btn' + (myVote === team.code ? ' mine' : '');
-      btn.disabled = !votingOpen || !!myVote;
+      btn.disabled = !currentVotingOpen || !!myVote;
       btn.innerHTML = `${team.flagHtml}❄ Congelar a ${team.label}<span class="count" id="count-${team.code}">–</span>`;
       btn.addEventListener('click', () => onVote(team.code));
       rowEl.appendChild(btn);
@@ -373,11 +407,11 @@
 
   async function onVote(teamCode) {
     try {
-      const { error, alreadyVoted } = await castVote(match.id, teamCode);
+      const { error, alreadyVoted } = await castVote(currentMatch.id, teamCode);
       if (alreadyVoted) { showSnackbar('Ya votaste en este partido.'); return; }
       if (error) { showSnackbar('No se pudo registrar el voto. Probá de nuevo.'); return; }
       statusEl.textContent = '¡Voto registrado! El freezer está activo.';
-      const home = describeTeam(match.home), away = describeTeam(match.away);
+      const home = describeTeam(currentMatch.home), away = describeTeam(currentMatch.away);
       renderVoteButtons(home, away);
       refreshCounts();
       triggerBlizzard();
@@ -391,8 +425,8 @@
 
   async function refreshCounts() {
     try {
-      const counts = await getVoteCounts(match.id);
-      [match.home, match.away].forEach(team => {
+      const counts = await getVoteCounts(currentMatch.id);
+      [currentMatch.home, currentMatch.away].forEach(team => {
         if (!team.code) return;
         const el = document.getElementById(`count-${team.code}`);
         if (el) el.textContent = counts[team.code] || 0;
@@ -404,7 +438,7 @@
   }
 
   // ---------- NEXT MATCHES LIST ----------
-  (function renderFixtureList() {
+  function renderFixtureList() {
     const listEl = document.getElementById('fixture-list');
     listEl.innerHTML = FIXTURES.matches.map(m => {
       const home = describeTeam(m.home), away = describeTeam(m.away);
@@ -414,26 +448,33 @@
       const middle = m.result
         ? `${home.flagHtml} ${home.label} <strong>${m.result.home}-${m.result.away}</strong> ${away.label} ${away.flagHtml}${m.result.note ? ` <span class="fx-note">(${m.result.note})</span>` : ''}`
         : `${home.flagHtml} ${home.label} vs ${away.label} ${away.flagHtml}`;
+      // Voteable = not finished + both teams already resolved (no "Ganador: X/Y" placeholders)
+      const voteable = st !== 'finished' && home.code && away.code;
+      const isSelected = currentMatch && currentMatch.id === m.id;
+      const rowClasses = ['fixture-row', voteable ? 'clickable' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
       return `
-        <div class="fixture-row">
+        <div class="${rowClasses}" ${voteable ? `data-match-id="${m.id}"` : ''}>
           <span class="pill ${st}">${pillLabel}</span>
           <span class="fx-teams">${middle}</span>
           <span class="fx-time">${time}</span>
         </div>`;
     }).join('');
-  })();
+
+    listEl.querySelectorAll('.fixture-row.clickable').forEach(row => {
+      row.addEventListener('click', () => loadMatch(row.dataset.matchId));
+    });
+  }
 
   // ---------- GAME PANEL ----------
   // Which side you play is decided entirely inside brujitas.html's own
   // team-picker screen — the live vote only comes along as a small difficulty
   // signal (handled there too), never as a forced assignment.
-  let gameLoaded = false;
   function loadGameFrame() {
-    if (gameLoaded || !match) return;
-    const home = describeTeam(match.home), away = describeTeam(match.away);
+    if (gameLoaded || !currentMatch) return;
+    const home = describeTeam(currentMatch.home), away = describeTeam(currentMatch.away);
     if (!home.code || !away.code) return; // teams not resolved yet, nothing to load
 
-    getVoteCounts(match.id).then(counts => {
+    getVoteCounts(currentMatch.id).then(counts => {
       const params = new URLSearchParams({
         team1_name: home.label, team1_code: home.code, team1_flag: home.flag, team1_color: home.color,
         team2_name: away.label, team2_code: away.code, team2_flag: away.flag, team2_color: away.color,
