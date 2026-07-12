@@ -71,6 +71,7 @@
                border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;}
   .fixture-row .fx-teams{flex:1;display:flex;align-items:center;gap:6px;}
   .fixture-row .fx-time{color:#8a8a8a;font-size:11px;white-space:nowrap;}
+  .fixture-row .fx-note{color:#8a8a8a;font-size:10px;}
   .pill{font-size:9px;padding:2px 6px;border-radius:10px;letter-spacing:.5px;text-transform:uppercase;}
   .pill.live{background:rgba(224,106,92,0.2);color:var(--err);}
   .pill.upcoming{background:rgba(191,233,255,0.12);color:var(--ice);}
@@ -410,10 +411,13 @@
       const st = getMatchStatus(m);
       const time = new Date(m.kickoff_utc).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const pillLabel = st === 'live' ? 'En vivo' : st === 'upcoming' ? 'Próximo' : 'Finalizado';
+      const middle = m.result
+        ? `${home.flagHtml} ${home.label} <strong>${m.result.home}-${m.result.away}</strong> ${away.label} ${away.flagHtml}${m.result.note ? ` <span class="fx-note">(${m.result.note})</span>` : ''}`
+        : `${home.flagHtml} ${home.label} vs ${away.label} ${away.flagHtml}`;
       return `
         <div class="fixture-row">
           <span class="pill ${st}">${pillLabel}</span>
-          <span class="fx-teams">${home.flagHtml} ${home.label} vs ${away.label} ${away.flagHtml}</span>
+          <span class="fx-teams">${middle}</span>
           <span class="fx-time">${time}</span>
         </div>`;
     }).join('');
