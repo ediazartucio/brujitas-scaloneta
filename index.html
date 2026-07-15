@@ -76,6 +76,7 @@
   .fixture-row .fx-teams{flex:1;display:flex;align-items:center;gap:6px;}
   .fixture-row .fx-time{color:#8a8a8a;font-size:11px;white-space:nowrap;}
   .fixture-row .fx-note{color:#8a8a8a;font-size:10px;}
+  .fixture-row .fx-teams strong{white-space:nowrap;}
   .pill{font-size:9px;padding:2px 6px;border-radius:10px;letter-spacing:.5px;text-transform:uppercase;}
   .pill.live{background:rgba(224,106,92,0.2);color:var(--err);}
   .pill.upcoming{background:rgba(191,233,255,0.12);color:var(--ice);}
@@ -300,17 +301,21 @@
     return team.flag ? `<img class="flag" src="https://flagcdn.com/24x18/${team.flag}.png" alt="">` : '';
   }
   function describeTeam(team) {
-    if (team.name_es) return { label: team.name_es, flagHtml: flagImg(team), code: team.code, flag: team.flag || '', color: team.color || '' };
+    if (team.name_es) return { label: team.name_es, shortLabel: team.code, flagHtml: flagImg(team), code: team.code, flag: team.flag || '', color: team.color || '' };
     if (team.ref) {
       const [kind, matchId] = team.ref.split(':');
       const verb = kind === 'winner' ? 'Ganador' : 'Perdedor';
       const refMatch = FIXTURES.matches.find(m => m.id === matchId);
       if (refMatch && refMatch.home.name_es && refMatch.away.name_es) {
-        return { label: `${verb}: ${refMatch.home.name_es}/${refMatch.away.name_es}`, flagHtml: '', code: null };
+        return {
+          label: `${verb}: ${refMatch.home.name_es}/${refMatch.away.name_es}`,
+          shortLabel: `${verb}: ${refMatch.home.code}/${refMatch.away.code}`,
+          flagHtml: '', code: null
+        };
       }
-      return { label: `${verb} ${matchId.toUpperCase()}`, flagHtml: '', code: null };
+      return { label: `${verb} ${matchId.toUpperCase()}`, shortLabel: `${verb} ${matchId.toUpperCase()}`, flagHtml: '', code: null };
     }
-    return { label: '?', flagHtml: '', code: null };
+    return { label: '?', shortLabel: '?', flagHtml: '', code: null };
   }
 
   // ---------- TAB SWITCHING ----------
@@ -446,8 +451,8 @@
       const time = new Date(m.kickoff_utc).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const pillLabel = st === 'live' ? 'En vivo' : st === 'upcoming' ? 'Próximo' : 'Finalizado';
       const middle = m.result
-        ? `${home.flagHtml} ${home.label} <strong>${m.result.home}-${m.result.away}</strong> ${away.label} ${away.flagHtml}${m.result.note ? ` <span class="fx-note">(${m.result.note})</span>` : ''}`
-        : `${home.flagHtml} ${home.label} vs ${away.label} ${away.flagHtml}`;
+        ? `${home.flagHtml} ${home.shortLabel} <strong>${m.result.home}-${m.result.away}</strong> ${away.shortLabel} ${away.flagHtml}${m.result.note ? ` <span class="fx-note">(${m.result.note})</span>` : ''}`
+        : `${home.flagHtml} ${home.shortLabel} vs ${away.shortLabel} ${away.flagHtml}`;
       // Voteable = not finished + both teams already resolved (no "Ganador: X/Y" placeholders)
       const voteable = st !== 'finished' && home.code && away.code;
       const isSelected = currentMatch && currentMatch.id === m.id;

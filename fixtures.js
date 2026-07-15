@@ -23,15 +23,19 @@ const FIXTURES = {
       home: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" },
       away: { name_es: "Suiza",       code: "SUI", flag: "ch",     color: "#D52B1E" } },
     { id: "m101", stage: "semifinal",    kickoff_utc: "2026-07-14T19:00:00Z", venue: "AT&T Stadium, Dallas",
-      home: { name_es: "Francia",     code: "FRA", flag: "fr",     color: "#0055A4" },   // beat Marruecos
-      away: { name_es: "España",      code: "ESP", flag: "es",     color: "#C60B1E" } }, // beat Bélgica
+      result: { home: 0, away: 2 },
+      home: { name_es: "Francia",     code: "FRA", flag: "fr",     color: "#0055A4" },
+      away: { name_es: "España",      code: "ESP", flag: "es",     color: "#C60B1E" } },
     { id: "m102", stage: "semifinal",    kickoff_utc: "2026-07-15T19:00:00Z", venue: "Mercedes-Benz Stadium, Atlanta",
-      home: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" },   // beat Noruega
-      away: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" } }, // beat Suiza, a.e.t.
+      result: { home: 1, away: 2 },
+      home: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" },
+      away: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" } },
     { id: "m103", stage: "third_place",  kickoff_utc: "2026-07-18T21:00:00Z", venue: "Hard Rock Stadium, Miami",
-      home: { ref: "loser:m101" }, away: { ref: "loser:m102" } },
+      home: { name_es: "Francia",     code: "FRA", flag: "fr",     color: "#0055A4" },   // lost to España
+      away: { name_es: "Inglaterra",  code: "ENG", flag: "gb-eng", color: "#1E2A5E" } }, // lost to Argentina
     { id: "m104", stage: "final",        kickoff_utc: "2026-07-19T19:00:00Z", venue: "MetLife Stadium, New Jersey",
-      home: { ref: "winner:m101" }, away: { ref: "winner:m102" } }
+      home: { name_es: "Argentina",   code: "ARG", flag: "ar",     color: "#75AADB" },   // beat Inglaterra
+      away: { name_es: "España",      code: "ESP", flag: "es",     color: "#C60B1E" } }  // beat Francia
   ]
 };
 
